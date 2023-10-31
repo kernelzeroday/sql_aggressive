@@ -13,7 +13,7 @@ import random
 NUM_THREADS = 25
 BATCH_SIZE = 5
 
-# Queue to hold batches of URLs
+# Queue to hold batches of URLs with tamper scripts
 url_queue = queue.Queue()
 
 # List to hold tamper scripts
@@ -23,13 +23,12 @@ def signal_handler(sig, frame):
     """ Handle Ctrl+C and gracefully exit """
     sys.exit(0)
 
-def execute_batch(command, batch, command_args, output_file, tamper_script):
-    """ Execute the command on a batch of URLs with a given tamper script, save and display the output. """
-    # Create a temporary file to hold the batch of URLs
+def execute_command(command, url, tamper_script, command_args, output_file):
+    """ Execute the command on a single URL with a given tamper script, save and display the output. """
+    # Create a temporary file to hold the URL
     with tempfile.NamedTemporaryFile(mode='w+', delete=False) as tmp_file:
         tmp_file_name = tmp_file.name
-        for url in batch:
-            tmp_file.write(url + '\n')
+        tmp_file.write(url + '\n')
 
     full_command = f"{command} {tmp_file_name} --tamper={tamper_script} {command_args}"
     try:
@@ -41,10 +40,10 @@ def execute_batch(command, batch, command_args, output_file, tamper_script):
             stderr=subprocess.STDOUT
         )
         output = result.stdout.decode()
-        
+
         # Print to terminal
         print(output)
-        
+
         # Write to output file
         with open(output_file, "a") as f:
             f.write(f"Command: {full_command}\n")
@@ -60,16 +59,14 @@ def execute_batch(command, batch, command_args, output_file, tamper_script):
         os.remove(tmp_file_name)
 
 def worker(command, command_args, output_file):
-    """ Worker thread function to process batches of URLs with tamper scripts. """
+    """ Worker thread function to process URLs with tamper scripts. """
     while True:
-        batch = url_queue.get()
-        if batch is None:
+        task = url_queue.get()
+        if task is None:
             break
 
-        # Select a random tamper script for this batch
-        tamper_script = random.choice(tamper_scripts)
-        
-        execute_batch(command, batch, command_args, output_file, tamper_script)
+        url, tamper_script = task
+        execute_command(command, url, tamper_script, command_args, output_file)
         url_queue.task_done()
 
 if __name__ == "__main__":
@@ -108,19 +105,15 @@ if __name__ == "__main__":
         t.start()
         threads.append(t)
 
-    # Read URLs from stdin and enqueue batches
-    batch = []
-    for line in sys.stdin:
-        line = line.strip()
-        if line:
-            batch.append(line)
-            if len(batch) == BATCH_SIZE:
-                url_queue.put(batch)
-                batch = []
-    if batch:
-        url_queue.put(batch)
+    # Read URLs from stdin, shuffle them, and enqueue each URL with each tamper script
+    urls = [line.strip() for line in sys.stdin if line.strip()]
+    random.shuffle(urls)
 
-    # Block until all URLs are processed
+    for url in urls:
+        for tamper_script in tamper_scripts:
+            url_queue.put((url, tamper_script))
+
+    # Block until all tasks are processed
     url_queue.join()
 
     # Stop worker threads
