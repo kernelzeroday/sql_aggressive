@@ -8,8 +8,12 @@ def main():
     RESET_COLOR = '\033[0m'  # Reset to default color
 
     lines = sys.stdin.readlines()
+    total_matches = 0  # Counter for total matches
+
     for i, line in enumerate(lines):
         if "sqlmap identified the following injection point" in line:
+            total_matches += 1  # Increment the counter
+
             # Find the corresponding URL
             url_line = ""
             for j in range(i, max(i - 150, -1), -1):
@@ -33,6 +37,9 @@ def main():
             if url_line and details:
                 print(f"{URL_COLOR}{url_line}{RESET_COLOR}")
                 print(f"{DETAILS_COLOR}{details}{RESET_COLOR}\n")
+
+    # Print the total number of matches
+    print(f"{RESET_COLOR}Total matches: {total_matches}")
 
 if __name__ == "__main__":
     main()
