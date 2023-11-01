@@ -14,4 +14,6 @@ python fancy_surface.py --attack_surface attack_surface.txt --found found.txt --
 
 python fancy_surface_parms.py --attack_surface attack_surface.txt --found found.txt --color --parse_found
 
+cat output.txt | python format_findings.py > found.txt ; python fancy_surface_parms.py --attack_surface ../attack_surface.txt --found found.txt --color --parse_found
+
 ```
