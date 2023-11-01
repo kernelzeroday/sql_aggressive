@@ -42,41 +42,47 @@ def extract_urls(file_lines, debug):
 def parse_additional_info(file_lines, colorize_output, debug):
     url_params = {}
     current_url = None
+    current_param = None
     for i, line in enumerate(file_lines):
         if 'http' in line:
             current_url = parse_url_line(line)
             if current_url:
                 url_params[current_url] = []
+                current_param = None
         elif current_url:
             param = parse_parameter_line(line)
             if param:
-                types = []
-                j = i + 1
-                while j < len(file_lines) and 'Type:' in file_lines[j]:
-                    types.append(file_lines[j].split(': ')[1])
-                    j += 1
-                result = f"[ param={param}, type={' '.join(types)} ]"
-                if colorize_output:
-                    result = colorize(result, 'blue')
-                url_params[current_url].append(result)
-                debug_print(debug, f"Found param - {result}")
+                current_param = param
+                url_params[current_url].append({param: []})
+            elif current_param and 'Type:' in line:
+                type_match = re.search(r'Type: (.+)', line)
+                if type_match:
+                    type_text = type_match.group(1)
+                    url_params[current_url][-1][current_param].append(f'"{type_text}"')
+                    if colorize_output:
+                        type_text = colorize(type_text, 'blue')
+                    debug_print(debug, f"Found type - {type_text}")
     return url_params
+
 def merge_results(attack_surface_lines, urls, url_params, colorize_output, debug):
     results = []
     for line in attack_surface_lines:
         parts = line.split(':')
         if len(parts) == 2:
             domain, ip = parts
-            for extracted_url, params in url_params.items():
+            for extracted_url, params_list in url_params.items():
                 if ip in extracted_url or domain in extracted_url:
                     if colorize_output:
                         domain = colorize(domain, 'green')
                         ip = colorize(ip, 'yellow')
                         extracted_url = colorize(extracted_url, 'red')
                     result_line = f'{domain}:{ip}:{extracted_url}'
-                    param_details = '    '.join(params)
-                    if param_details:
-                        result_line += f'    {param_details}'
+                    for param_dict in params_list:
+                        for param, types in param_dict.items():
+                            param_details = f"[ param={param}, types={', '.join(types)} ]"
+                            if colorize_output:
+                                param_details = colorize(param_details, 'blue')
+                            result_line += f'    {param_details}'
                     result_line += '\n'
                     results.append(result_line)
                     debug_print(debug, f"Matched {domain}:{ip} with {extracted_url}")
