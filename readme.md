@@ -11,4 +11,7 @@ httpx | python sqla_tamper_tantrum.py "sqlmap -m" -o output.txt -i sqlmap_args.t
 
 
 python fancy_surface.py --attack_surface attack_surface.txt --found found.txt --color
+
+python fancy_surface_parms.py --attack_surface attack_surface.txt --found found.txt --color --parse_found
+
 ```
